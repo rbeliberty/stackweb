@@ -1,0 +1,59 @@
+version: '3.7'
+
+services:
+  mysql:
+    image: mysql
+    command: ["--default-authentication-plugin=mysql_native_password"]
+    ports:
+      - 3306:3306
+    volumes:
+      - ./data/db/mysql:/var/lib/mysql
+      - ./data/dumps/mysql:/dumps
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: app
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app
+
+  pg:
+    image: postgres:11-alpine
+    restart: on-failure
+    ports:
+      - 5432:5432
+    volumes:
+      - ./data/db/pg:/var/lib/postgresql/data
+      - ./data/dumps/pg:/dumps
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+
+  php:
+    build:
+      context: ./
+      dockerfile: docker/php/Dockerfile
+      args:
+        USER_ID: ${USER_ID:?err}
+        GROUP_ID: ${GROUP_ID:?err}
+        APCU_VERSION: ${APCU_VERSION:?err}
+        NODEJS_VERSION: ${NODEJS_VERSION:?err}
+        PHP_VERSION: ${PHP_VERSION:?err}
+    expose:
+      - '9000'
+    volumes:
+      - ./app:/var/www/app:rw,cached
+
+  nginx:
+    build: docker/nginx
+    ports:
+      - 80:80
+    depends_on:
+      - php
+    volumes:
+      - ./logs/nginx:/var/log/nginx:cached
+      - ./app:/var/www/app:rw
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
